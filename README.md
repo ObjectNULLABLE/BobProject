@@ -18,57 +18,19 @@ An online tool for preparing and running games based on the Band of Blades syste
 3. Go to Settings > Database to get your database connection string
 4. Update `.env` with your Supabase credentials (replace the placeholder values):
    ```
-   SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_ANON_KEY=your_actual_anon_key
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_actual_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
    DATABASE_URL=postgresql://postgres:[password]@db.your-project.supabase.co:5432/postgres
    ```
 5. Keep `SUPABASE_SERVICE_ROLE_KEY` private and do not expose it to client-side code.
-6. Create the `sessions` table in Supabase SQL Editor:
 
-   ```sql
-   CREATE TABLE sessions (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     name TEXT NOT NULL,
-     owner TEXT NOT NULL,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     characters JSONB DEFAULT '[]'::jsonb,
-     maps JSONB DEFAULT '[]'::jsonb,
-     dice_history JSONB DEFAULT '[]'::jsonb
-   );
+   ```bash
+   npm install
+   npm run dev
    ```
 
-7. Create the `session_members` table in Supabase SQL Editor:
-
-   ```sql
-   CREATE TABLE session_members (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-     role TEXT NOT NULL CHECK (role IN ('commander', 'marshal', 'quartermaster', 'lorekeeper', 'spymaster')),
-     player_name TEXT NOT NULL,
-     player_id UUID,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     UNIQUE(session_id, role)
-   );
-   ```
-
-8. Grant permissions for the `session_members` table in Supabase SQL Editor:
-
-   ```sql
-   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.session_members TO service_role;
-   ```
-
-9. Enable authentication in Supabase by going to Authentication > Users and setting up email/password auth.
-
-10. Install dependencies and run the development server:
-
-    ```bash
-    npm install
-    npm run dev
-    ```
-
-11. Open [http://localhost:3000](http://localhost:3000) in your browser.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 

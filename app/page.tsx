@@ -4,13 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { signOut } from '@/lib/auth'
-
-type SessionItem = {
-  id: string
-  name: string
-  owner: string
-  created_at?: string
-}
+import type { SessionItem } from '@/lib/types'
 
 type UserMetadata = {
   name?: string
