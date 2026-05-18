@@ -27,7 +27,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const { role, player_name } = await request.json()
+    const { role, player_name, replace: replaceExisting } = await request.json()
 
     if (!role || !player_name) {
       return NextResponse.json({ error: 'Role and player name are required' }, { status: 400 })
@@ -42,7 +42,21 @@ export async function POST(
       .maybeSingle()
 
     if (existing) {
-      return NextResponse.json({ error: 'Role already taken' }, { status: 409 })
+      if (!replaceExisting) {
+        return NextResponse.json({ error: 'Role already taken' }, { status: 409 })
+      }
+
+      const { data, error } = await supabaseServer
+        .from('session_members')
+        .update({ player_name })
+        .eq('session_id', id)
+        .eq('role', role)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return NextResponse.json(data)
     }
 
     // Create member entry

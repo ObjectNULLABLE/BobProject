@@ -1,13 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { LEGION_ROLES, type LegionRole } from '@/lib/auth'
+
+import type { SessionMember } from '@/lib/types'
 
 interface RoleSelectionModalProps {
   sessionId: string
   onRoleSelected: (role: LegionRole, playerName: string) => void
   onClose: () => void
   takenRoles: string[]
+  members: SessionMember[]
 }
 
 export default function RoleSelectionModal({
@@ -15,6 +18,7 @@ export default function RoleSelectionModal({
   onRoleSelected,
   onClose,
   takenRoles,
+  members,
 }: RoleSelectionModalProps) {
   const [selectedRole, setSelectedRole] = useState<LegionRole | null>(null)
   const [playerName, setPlayerName] = useState('')
@@ -47,6 +51,44 @@ export default function RoleSelectionModal({
       onRoleSelected(selectedRole, playerName)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to select role')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRestore = (member: SessionMember) => {
+    const restoredName = member.player_name || playerName
+    localStorage.setItem(`session_${sessionId}_role`, member.role)
+    localStorage.setItem(`session_${sessionId}_player_name`, restoredName)
+    onRoleSelected(member.role, restoredName)
+  }
+
+  const handleTakeover = async (member: SessionMember) => {
+    if (!playerName) {
+      setError('Enter a name before taking over a role')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: member.role, player_name: playerName, replace: true }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to take over role')
+      }
+
+      localStorage.setItem(`session_${sessionId}_role`, member.role)
+      localStorage.setItem(`session_${sessionId}_player_name`, playerName)
+      onRoleSelected(member.role, playerName)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to take over role')
     } finally {
       setLoading(false)
     }
@@ -102,6 +144,43 @@ export default function RoleSelectionModal({
               ))}
             </div>
           </div>
+
+          {members.length > 0 && (
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+              <h3 className="text-lg font-semibold mb-3">Restore or take over a missing role</h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                If your previous player data was lost, restore it. If someone else needs to play instead, take over a missing role.
+              </p>
+              <div className="space-y-3">
+                {members.map((member) => (
+                  <div key={member.id} className="flex flex-col gap-2 rounded-md border border-yellow-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-medium capitalize">{member.role}</p>
+                        <p className="text-sm text-gray-600">{member.player_name}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleRestore(member)}
+                          className="px-3 py-2 rounded-md border border-yellow-400 bg-yellow-100 text-sm text-yellow-900 hover:bg-yellow-200"
+                        >
+                          It&apos;s me
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTakeover(member)}
+                          className="px-3 py-2 rounded-md border border-indigo-600 bg-indigo-50 text-sm text-indigo-700 hover:bg-indigo-100"
+                        >
+                          Take over
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <button

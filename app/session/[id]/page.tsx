@@ -4,23 +4,26 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useSessionStore } from '../../../lib/sessionStore'
 import RoleSelectionModal from '@/components/RoleSelectionModal'
-import DiceRoller from '@/components/DiceRoller'
+import BobDiceRoller from '@/components/BobDiceRoller'
 import { getCurrentUser } from '@/lib/auth'
 import type { LegionRole } from '@/lib/auth'
-import type { Session } from '@/lib/types'
+import type { Session, SessionMember, BobDiceRoll } from '@/lib/types'
+
+type TabType = 'role' | 'characters' | 'maps' | 'notes' | 'info'
 
 export default function SessionPage() {
   const params = useParams()
   const { currentSession, setSession } = useSessionStore()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sessionMembers, setSessionMembers] = useState<any[]>([])
+  const [sessionMembers, setSessionMembers] = useState<SessionMember[]>([])
   const [showRoleModal, setShowRoleModal] = useState(false)
   const [playerRole, setPlayerRole] = useState<LegionRole | null>(null)
   const [playerName, setPlayerName] = useState<string | null>(null)
   const [isGM, setIsGM] = useState(false)
-  const [diceHistory, setDiceHistory] = useState<any[]>([])
+  const [diceHistory, setDiceHistory] = useState<BobDiceRoll[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<TabType>('role')
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -32,15 +35,22 @@ export default function SessionPage() {
         const session: Session = await response.json()
         setSession(session)
 
+        console.log('Fetched session:', session)
+
         // Check if current user is the GM
         const { user } = await getCurrentUser()
+
         setCurrentUser(user)
-        const isUserGM = user && (
+        console.log('Current user:', user)
+        const isUserSessionOwner = user && (
           session.owner === user.user_metadata?.name ||
           session.owner === user.email ||
           session.gm_id === user.id
         )
-        setIsGM(!!isUserGM)
+        setIsGM(!!isUserSessionOwner)
+
+        console.log('Is user session owner (GM)?', isUserSessionOwner)
+        console.log('Is GM:', isGM)
 
         // Fetch session members
         const membersResponse = await fetch(`/api/sessions/${params.id}/members`)
@@ -57,7 +67,7 @@ export default function SessionPage() {
         }
 
         // Check for saved role in local storage (only for non-GMs)
-        if (!isUserGM) {
+        if (!isUserSessionOwner) {
           const savedRole = localStorage.getItem(`session_${params.id}_role`)
           const savedName = localStorage.getItem(`session_${params.id}_player_name`)
           if (savedRole && savedName) {
@@ -78,7 +88,7 @@ export default function SessionPage() {
     if (params.id) {
       fetchSession()
     }
-  }, [params.id, setSession])
+  }, [params.id, setSession, isGM, setIsGM])
 
   const handleDiceRoll = (roll: any) => {
     setDiceHistory(prev => [...prev, roll])
@@ -97,149 +107,230 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">{currentSession.name}</h1>
-          {isGM ? (
-            <div className="bg-green-50 border border-green-200 rounded-md p-3 inline-block">
-              <p className="text-sm text-green-800">
-                You are the <span className="font-semibold">Game Master</span> of this session
-              </p>
-            </div>
-          ) : playerRole && playerName ? (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3 inline-block">
-              <p className="text-sm text-indigo-800">
-                You are playing as: <span className="font-semibold capitalize">{playerRole}</span> ({playerName})
-              </p>
-            </div>
-          ) : (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 inline-block">
-              <p className="text-sm text-yellow-800">
-                Select your role to join the session
-              </p>
-            </div>
-          )}
-        </div>
-        {!isGM && playerRole && (
-          <button
-            onClick={() => setShowRoleModal(true)}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Change Role
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-2 mb-8">
-        <p>
-          <span className="font-medium">Session ID:</span> {currentSession.id}
-        </p>
-        <p>
-          <span className="font-medium">Owner:</span> {currentSession.owner}
-        </p>
-        <p>
-          <span className="font-medium">Created:</span> {new Date(currentSession.created_at).toLocaleString()}
-        </p>
-      </div>
-
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Legion Members</h2>
-        <div className="space-y-2">
-          {sessionMembers.length > 0 ? (
-            sessionMembers.map((member) => (
-              <div key={member.id} className="p-3 bg-gray-50 rounded-md">
-                <p className="capitalize">
-                  <span className="font-medium">{member.role}:</span> {member.player_name}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-40">
+        <div className="container px-4 mx-auto flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-3">{currentSession.name}</h1>
+            {isGM ? (
+              <div className="bg-green-50 border border-green-200 rounded-md p-3 inline-block">
+                <p className="text-sm text-green-800">
+                  You are the <span className="font-semibold">Game Master</span> of this session
                 </p>
               </div>
-            ))
-          ) : (
-            <p className="text-gray-500">No members joined yet</p>
+            ) : playerRole && playerName ? (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3 inline-block">
+                <p className="text-sm text-indigo-800">
+                  You are playing as: <span className="font-semibold capitalize">{playerRole}</span> ({playerName})
+                </p>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 inline-block">
+                <p className="text-sm text-yellow-800">
+                  Select your role to join the session
+                </p>
+              </div>
+            )}
+          </div>
+          {!isGM && playerRole && (
+            <button
+              onClick={() => setShowRoleModal(true)}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Change Role
+            </button>
           )}
         </div>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Characters</h2>
-        <p>{currentSession.characters.length} characters</p>
-        {/* TODO: Display characters */}
-      </div>
+      {/* Main Content Area */}
+      <div className="container mx-auto p-4 flex gap-6">
+        {/* Left: Tabbed Content */}
+        <div className="flex-1">
+          {/* Tab Navigation */}
+          <div className="bg-white rounded-lg border border-gray-200 mb-6 overflow-hidden">
+            <div className="flex border-b border-gray-200 bg-gray-50">
+              {(['role', 'characters', 'maps', 'notes', 'info'] as TabType[]).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-3 px-4 text-sm font-medium text-center capitalize transition-colors ${
+                    activeTab === tab
+                      ? 'bg-white text-indigo-600 border-b-2 border-indigo-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {tab === 'role' ? 'Legion' : tab}
+                </button>
+              ))}
+            </div>
 
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Maps</h2>
-        <p>{currentSession.maps.length} maps</p>
-        {/* TODO: Display maps */}
-      </div>
-
-      {/* Dice Roller */}
-      {(isGM || playerRole) && currentUser && (
-        <DiceRoller
-          sessionId={currentSession.id}
-          playerName={
-            isGM
-              ? (currentUser.user_metadata?.name || currentUser.email || 'GM')
-              : (playerName || 'Player')
-          }
-          playerRole={isGM ? 'Game Master' : playerRole || undefined}
-          isGM={isGM}
-          onRoll={handleDiceRoll}
-        />
-      )}
-
-      {/* Dice History */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Dice History</h2>
-        {diceHistory.length > 0 ? (
-          <div className="space-y-3">
-            {diceHistory.slice().reverse().map((roll: any) => (
-              <div key={roll.id} className="bg-gray-50 border border-gray-200 rounded-md p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-medium">
-                    {roll.player_name}
-                    {roll.player_role && (
-                      <span className="text-sm text-gray-600 ml-2">
-                        ({roll.player_role})
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {new Date(roll.timestamp).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
-                    Rolled {roll.dice_count} d6:
-                  </span>
-                  <div className="flex gap-1">
-                    {roll.results.map((result: number, index: number) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-300 rounded text-sm font-medium"
-                      >
-                        {result}
-                      </span>
-                    ))}
+            {/* Tab Content */}
+            <div className="bg-white p-6">
+              {/* Role Tab */}
+              {activeTab === 'role' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Legion Members</h2>
+                    <div className="space-y-2">
+                      {sessionMembers.length > 0 ? (
+                        sessionMembers.map((member) => (
+                          <div key={member.id} className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                            <p className="capitalize">
+                              <span className="font-medium">{member.role}:</span> {member.player_name}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500">No members joined yet</p>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-semibold ml-2">Total: {roll.total}</span>
                 </div>
-              </div>
-            ))}
+              )}
+
+              {/* Characters Tab */}
+              {activeTab === 'characters' && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Characters</h2>
+                  <p className="text-gray-600 mb-4">{currentSession.characters.length} characters</p>
+                  <div className="p-8 text-center border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                    <p className="text-gray-500">Character management coming soon</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Maps Tab */}
+              {activeTab === 'maps' && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Maps</h2>
+                  <p className="text-gray-600 mb-4">{currentSession.maps.length} maps</p>
+                  <div className="p-8 text-center border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                    <p className="text-gray-500">Map management coming soon</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes Tab */}
+              {activeTab === 'notes' && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Session Notes</h2>
+                  <div className="p-8 text-center border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                    <p className="text-gray-500">Session notes coming soon</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Info Tab */}
+              {activeTab === 'info' && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Session Information</h2>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-sm text-gray-600">Session ID</p>
+                      <p className="font-mono font-medium">{currentSession.id}</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-sm text-gray-600">Game Master</p>
+                      <p className="font-medium">{currentSession.owner}</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-sm text-gray-600">Created</p>
+                      <p className="font-medium">{new Date(currentSession.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        ) : (
-          <p className="text-gray-500">No dice rolls yet</p>
-        )}
+        </div>
+
+        {/* Right: Dice Roller & History Sidebar */}
+        <div className="w-80 sticky top-24 h-fit">
+          {/* Band of Blades Dice Roller */}
+          {(isGM || playerRole) && (
+            <BobDiceRoller
+              sessionId={currentSession.id}
+              playerName={
+                isGM
+                  ? (currentUser.user_metadata?.name || currentUser.email || 'GM')
+                  : (playerName || 'Player')
+              }
+              playerRole={isGM ? 'Game Master' : playerRole || undefined}
+              isGM={isGM}
+              onRoll={handleDiceRoll}
+            />
+          )}
+
+          {/* Dice History */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-6">
+            <h3 className="text-lg font-semibold mb-4">Dice History</h3>
+            {diceHistory.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {diceHistory.slice().reverse().map((roll: BobDiceRoll) => (
+                  <div key={roll.id} className="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900">{roll.player_name}</p>
+                        <p className="text-xs text-gray-600 capitalize">
+                          {roll.type}
+                          {roll.position && ` • ${roll.position}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mb-2">
+                      {roll.results.map((result: number, index: number) => (
+                        <span
+                          key={index}
+                          className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold border ${
+                            result === roll.highest_die
+                              ? 'bg-indigo-100 border-indigo-400'
+                              : 'bg-white border-gray-300'
+                          }`}
+                        >
+                          {result}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-gray-600">
+                        Highest: <span className="font-semibold">{roll.highest_die}</span>
+                      </span>
+                      <span className={`text-xs font-semibold px-2 py-1 rounded capitalize ${
+                        roll.outcome === 'critical' ? 'bg-green-100 text-green-800' :
+                        roll.outcome === 'success' ? 'bg-blue-100 text-blue-800' :
+                        roll.outcome === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {roll.outcome}
+                      </span>
+                    </div>
+                    {roll.description && (
+                      <p className="text-xs text-gray-700 leading-tight">{roll.description}</p>
+                    )}
+                    <span className="text-xs text-gray-400 mt-2 block">
+                      {new Date(roll.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm text-center py-8">No dice rolls yet</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {showRoleModal && (
         <RoleSelectionModal
           sessionId={currentSession.id}
           takenRoles={sessionMembers.map((m) => m.role)}
+          members={sessionMembers}
           onRoleSelected={(role, name) => {
             setPlayerRole(role)
             setPlayerName(name)
             setShowRoleModal(false)
-            // Refresh members list
             fetch(`/api/sessions/${currentSession.id}/members`)
               .then((r) => r.json())
               .then(setSessionMembers)
