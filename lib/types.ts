@@ -32,6 +32,7 @@ export interface SessionItem {
 export type DiceRollType = 'action' | 'resistance' | 'fortune'
 export type Position = 'controlled' | 'risky' | 'desperate'
 export type Effect = 'limited' | 'standard' | 'great'
+export type ResistanceAttribute = 'insight' | 'prowess' | 'resolve'
 
 export interface BobDiceRoll {
   id: string
@@ -47,6 +48,25 @@ export interface BobDiceRoll {
   effect?: Effect
   highest_die?: number
   outcome?: 'failure' | 'partial' | 'success' | 'critical'
+  // Resistance roll specific
+  resistance_attribute?: ResistanceAttribute
+  stress_taken?: number
   // Outcome description
   description?: string
+}
+
+export interface ChatFeedEntry {
+  id: string
+  session_id: string
+  type: 'dice' | 'message'
+  content: BobDiceRoll | ChatMessage
+  created_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  player_name: string
+  player_role?: string
+  text: string
+  timestamp: string
 }

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { useSessionStore } from '../../../lib/sessionStore'
 import RoleSelectionModal from '@/components/RoleSelectionModal'
 import BobDiceRoller from '@/components/BobDiceRoller'
+import ChatFeed from '@/components/ChatFeed'
 import { getCurrentUser } from '@/lib/auth'
 import type { LegionRole } from '@/lib/auth'
 import type { Session, SessionMember, BobDiceRoll } from '@/lib/types'
@@ -21,7 +22,6 @@ export default function SessionPage() {
   const [playerRole, setPlayerRole] = useState<LegionRole | null>(null)
   const [playerName, setPlayerName] = useState<string | null>(null)
   const [isGM, setIsGM] = useState(false)
-  const [diceHistory, setDiceHistory] = useState<BobDiceRoll[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<TabType>('role')
 
@@ -59,13 +59,6 @@ export default function SessionPage() {
           setSessionMembers(members)
         }
 
-        // Fetch dice history
-        const diceResponse = await fetch(`/api/sessions/${params.id}/dice`)
-        if (diceResponse.ok) {
-          const dice = await diceResponse.json()
-          setDiceHistory(dice)
-        }
-
         // Check for saved role in local storage (only for non-GMs)
         if (!isUserSessionOwner) {
           const savedRole = localStorage.getItem(`session_${params.id}_role`)
@@ -89,10 +82,6 @@ export default function SessionPage() {
       fetchSession()
     }
   }, [params.id, setSession, isGM, setIsGM])
-
-  const handleDiceRoll = (roll: any) => {
-    setDiceHistory(prev => [...prev, roll])
-  }
 
   if (loading) {
     return <div className="container mx-auto p-4">Loading session...</div>
@@ -259,66 +248,11 @@ export default function SessionPage() {
               }
               playerRole={isGM ? 'Game Master' : playerRole || undefined}
               isGM={isGM}
-              onRoll={handleDiceRoll}
             />
           )}
 
-          {/* Dice History */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-6">
-            <h3 className="text-lg font-semibold mb-4">Dice History</h3>
-            {diceHistory.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {diceHistory.slice().reverse().map((roll: BobDiceRoll) => (
-                  <div key={roll.id} className="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-medium text-gray-900">{roll.player_name}</p>
-                        <p className="text-xs text-gray-600 capitalize">
-                          {roll.type}
-                          {roll.position && ` • ${roll.position}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 mb-2">
-                      {roll.results.map((result: number, index: number) => (
-                        <span
-                          key={index}
-                          className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold border ${
-                            result === roll.highest_die
-                              ? 'bg-indigo-100 border-indigo-400'
-                              : 'bg-white border-gray-300'
-                          }`}
-                        >
-                          {result}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-gray-600">
-                        Highest: <span className="font-semibold">{roll.highest_die}</span>
-                      </span>
-                      <span className={`text-xs font-semibold px-2 py-1 rounded capitalize ${
-                        roll.outcome === 'critical' ? 'bg-green-100 text-green-800' :
-                        roll.outcome === 'success' ? 'bg-blue-100 text-blue-800' :
-                        roll.outcome === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {roll.outcome}
-                      </span>
-                    </div>
-                    {roll.description && (
-                      <p className="text-xs text-gray-700 leading-tight">{roll.description}</p>
-                    )}
-                    <span className="text-xs text-gray-400 mt-2 block">
-                      {new Date(roll.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm text-center py-8">No dice rolls yet</p>
-            )}
-          </div>
+          {/* Chat Feed */}
+          <ChatFeed sessionId={currentSession.id} />
         </div>
       </div>
 

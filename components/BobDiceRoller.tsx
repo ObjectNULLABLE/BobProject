@@ -26,14 +26,39 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
     return 'failure'
   }
 
-  const getOutcomeDescription = (outcome: string, highest: number, position: Position, effect: Effect, totalSixes: number) => {
-    const descriptions: Record<string, string> = {
-      critical: `Critical Success! You accomplish your goal with significant advantage. (Multiple 6s rolled)`,
-      success: `Full Success. Things go well. You achieve your goal as intended.`,
-      partial: `Partial Success. You do what you're trying to do, but there are consequences: trouble, harm, reduced effect, etc.`,
-      failure: `Bad Outcome. Things go poorly. You don't achieve your goal and you suffer complications.`,
+  const getStressFromResistance = (highest: number): number => {
+    // Stress taken is 6 - highest die
+    return Math.max(0, 6 - highest)
+  }
+
+  const getOutcomeDescription = (rollType: DiceRollType, outcome: string, highest: number, position: Position, effect: Effect, totalSixes: number) => {
+    if (rollType === 'action') {
+      const descriptions: Record<string, string> = {
+        critical: `Critical Success! You accomplish your goal with significant advantage. (Multiple 6s rolled)`,
+        success: `Full Success. Things go well. You achieve your goal as intended.`,
+        partial: `Partial Success. You do what you're trying to do, but there are consequences: trouble, harm, reduced effect, etc.`,
+        failure: `Bad Outcome. Things go poorly. You don't achieve your goal and you suffer complications.`,
+      }
+      return descriptions[outcome] || ''
+    } else if (rollType === 'resistance') {
+      const stress = getStressFromResistance(highest)
+      const descriptions: Record<string, string> = {
+        critical: `Critical Resistance! You resist the consequence with minimal cost. Your character toughs it out (${stress} stress).`,
+        success: `Successful Resistance. You resist the consequence effectively. (${stress} stress taken)`,
+        partial: `Partial Resistance. You resist but at a cost. (${stress} stress taken)`,
+        failure: `Resistance Failed. You cannot resist the consequence and suffer full effect. (${stress} stress taken)`,
+      }
+      return descriptions[outcome] || ''
+    } else if (rollType === 'fortune') {
+      const descriptions: Record<string, string> = {
+        critical: `Critical Fortune! An amazing coincidence. The situation swings dramatically in your favor.`,
+        success: `Good Fortune. The odds break in your favor. Things go better than expected.`,
+        partial: `Mixed Fortune. Some luck, but complications remain. The outcome is uncertain.`,
+        failure: `Bad Fortune. Luck is not on your side. The situation worsens or remains dire.`,
+      }
+      return descriptions[outcome] || ''
     }
-    return descriptions[outcome] || ''
+    return ''
   }
 
   const rollDice = async () => {
@@ -54,7 +79,8 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
 
     const totalSixes = results.filter(r => r === 6).length
     const outcome = getOutcome(highest, totalSixes)
-    const description = getOutcomeDescription(outcome, highest, position, effect, totalSixes)
+    const description = getOutcomeDescription(rollType, outcome, highest, position, effect, totalSixes)
+    const stress = rollType === 'resistance' ? getStressFromResistance(highest) : undefined
 
     const roll: BobDiceRoll = {
       id: Date.now().toString(),
@@ -70,13 +96,17 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
       highest_die: highest,
       outcome: outcome as any,
       description,
+      stress_taken: stress,
     }
 
     try {
-      const response = await fetch(`/api/sessions/${sessionId}/dice`, {
+      const response = await fetch(`/api/sessions/${sessionId}/chat-feed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roll),
+        body: JSON.stringify({
+          type: 'dice',
+          content: roll,
+        }),
       })
 
       if (response.ok) {
