@@ -45,10 +45,23 @@ export default function DiceRoller({ sessionId, playerName, playerRole, isGM, on
     }
 
     try {
-      const response = await fetch(`/api/sessions/${sessionId}/dice`, {
+      const response = await fetch(`/api/sessions/${sessionId}/chat-feed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roll),
+        body: JSON.stringify({
+          type: 'roll',
+          content: {
+            roll_type: 'campaign',
+            campaign_roll_type: 'generic',
+            dice_pool: diceCount,
+            results,
+            actor: {
+              member_id: '',
+              name: playerName,
+              role: playerRole,
+            },
+          },
+        }),
       })
 
       if (response.ok) {

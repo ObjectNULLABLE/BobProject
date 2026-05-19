@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import type { DiceRollType, Position, Effect, BobDiceRoll } from '@/lib/types'
+import { getFitDOutcome, getKeptDie, getRollDescription } from '@/lib/rollHelpers'
+import type { DiceRollType, Position, Effect, RollContent } from '@/lib/types'
 
 interface BobDiceRollerProps {
   sessionId: string
   playerName: string
   playerRole?: string
   isGM?: boolean
-  onRoll?: (roll: BobDiceRoll) => void
+  onRoll?: () => void
 }
 
 export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM, onRoll }: BobDiceRollerProps) {
@@ -17,101 +18,64 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
   const [position, setPosition] = useState<Position>('risky')
   const [effect, setEffect] = useState<Effect>('standard')
   const [rolling, setRolling] = useState(false)
-  const [lastRoll, setLastRoll] = useState<BobDiceRoll | null>(null)
-
-  const getOutcome = (highest: number, totalSixes: number) => {
-    if (totalSixes > 1) return 'critical'
-    if (highest >= 6) return 'success'
-    if (highest >= 4) return 'partial'
-    return 'failure'
-  }
+  const [lastRoll, setLastRoll] = useState<(RollContent & { created_at: string }) | null>(null)
 
   const getStressFromResistance = (highest: number): number => {
-    // Stress taken is 6 - highest die
     return Math.max(0, 6 - highest)
-  }
-
-  const getOutcomeDescription = (rollType: DiceRollType, outcome: string, highest: number, position: Position, effect: Effect, totalSixes: number) => {
-    if (rollType === 'action') {
-      const descriptions: Record<string, string> = {
-        critical: `Critical Success! You accomplish your goal with significant advantage. (Multiple 6s rolled)`,
-        success: `Full Success. Things go well. You achieve your goal as intended.`,
-        partial: `Partial Success. You do what you're trying to do, but there are consequences: trouble, harm, reduced effect, etc.`,
-        failure: `Bad Outcome. Things go poorly. You don't achieve your goal and you suffer complications.`,
-      }
-      return descriptions[outcome] || ''
-    } else if (rollType === 'resistance') {
-      const stress = getStressFromResistance(highest)
-      const descriptions: Record<string, string> = {
-        critical: `Critical Resistance! You resist the consequence with minimal cost. Your character toughs it out (${stress} stress).`,
-        success: `Successful Resistance. You resist the consequence effectively. (${stress} stress taken)`,
-        partial: `Partial Resistance. You resist but at a cost. (${stress} stress taken)`,
-        failure: `Resistance Failed. You cannot resist the consequence and suffer full effect. (${stress} stress taken)`,
-      }
-      return descriptions[outcome] || ''
-    } else if (rollType === 'fortune') {
-      const descriptions: Record<string, string> = {
-        critical: `Critical Fortune! An amazing coincidence. The situation swings dramatically in your favor.`,
-        success: `Good Fortune. The odds break in your favor. Things go better than expected.`,
-        partial: `Mixed Fortune. Some luck, but complications remain. The outcome is uncertain.`,
-        failure: `Bad Fortune. Luck is not on your side. The situation worsens or remains dire.`,
-      }
-      return descriptions[outcome] || ''
-    }
-    return ''
   }
 
   const rollDice = async () => {
     setRolling(true)
-    await new Promise(resolve => setTimeout(resolve, 800))
+    await new Promise((resolve) => setTimeout(resolve, 800))
 
-    let results: number[]
-    let highest: number
+    const results = diceCount === 0
+      ? [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]
+      : Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1)
 
-    // Special case: 0 dice = roll 2d6, take lowest
-    if (diceCount === 0) {
-      results = [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]
-      highest = Math.min(...results)
-    } else {
-      results = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1)
-      highest = Math.max(...results)
-    }
-
-    const totalSixes = results.filter(r => r === 6).length
-    const outcome = getOutcome(highest, totalSixes)
-    const description = getOutcomeDescription(rollType, outcome, highest, position, effect, totalSixes)
-    const stress = rollType === 'resistance' ? getStressFromResistance(highest) : undefined
-
-    const roll: BobDiceRoll = {
-      id: Date.now().toString(),
-      player_name: playerName,
-      player_role: playerRole,
-      type: rollType,
-      dice_count: diceCount,
+    const baseRoll = {
+      dice_pool: diceCount,
       results,
-      total: results.reduce((sum, die) => sum + die, 0),
-      timestamp: new Date().toISOString(),
-      position: rollType === 'action' ? position : undefined,
-      effect: rollType === 'action' ? effect : undefined,
-      highest_die: highest,
-      outcome: outcome as any,
-      description,
-      stress_taken: stress,
+      actor: {
+        member_id: '',
+        name: playerName,
+        role: playerRole,
+      },
+      created_at: new Date().toISOString(),
     }
+
+    const rollContent: RollContent & { created_at: string } =
+      rollType === 'action'
+        ? {
+            ...baseRoll,
+            roll_type: 'action',
+            action: null,
+            position,
+            effect,
+          }
+        : rollType === 'resistance'
+        ? {
+            ...baseRoll,
+            roll_type: 'resistance',
+            attribute: 'insight',
+          }
+        : {
+            ...baseRoll,
+            roll_type: 'fortune',
+          }
 
     try {
       const response = await fetch(`/api/sessions/${sessionId}/chat-feed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'dice',
-          content: roll,
+          type: 'roll',
+          content: rollContent,
         }),
       })
 
       if (response.ok) {
-        setLastRoll(roll)
-        onRoll?.(roll)
+        setLastRoll(rollContent)
+        onRoll?.()
       }
     } catch (error) {
       console.error('Failed to save dice roll:', error)
@@ -234,15 +198,27 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
 
       {/* Last Roll Result */}
       {lastRoll && (
-        <div className={`rounded-lg border-2 p-3 ${getOutcomeColor(lastRoll.outcome)}`}>
+        <div className={`rounded-lg border-2 p-3 ${getOutcomeColor(getFitDOutcome(lastRoll.results, lastRoll.dice_pool))}`}>
           <div className="flex justify-between items-start mb-2">
             <div>
-              <p className="font-semibold capitalize">{lastRoll.type}</p>
-              {lastRoll.position && (
-                <p className="text-xs opacity-75">{lastRoll.position} • {lastRoll.effect}</p>
+              <p className="font-semibold text-sm capitalize">{lastRoll.roll_type} roll</p>
+              <p className="text-xs opacity-75">
+                {lastRoll.actor.name}
+                {lastRoll.actor.role ? ` • ${lastRoll.actor.role}` : ''}
+              </p>
+              {lastRoll.roll_type === 'action' && (
+                <p className="text-xs opacity-75">
+                  {lastRoll.action ?? 'Action'} • {lastRoll.position} • {lastRoll.effect}
+                </p>
+              )}
+              {lastRoll.roll_type === 'resistance' && (
+                <p className="text-xs opacity-75">{lastRoll.attribute} resistance</p>
+              )}
+              {lastRoll.roll_type === 'fortune' && lastRoll.context && (
+                <p className="text-xs opacity-75">{lastRoll.context}</p>
               )}
             </div>
-            <span className="text-xs font-mono">{new Date(lastRoll.timestamp).toLocaleTimeString()}</span>
+            <span className="text-xs font-mono">{new Date(lastRoll.created_at).toLocaleTimeString()}</span>
           </div>
 
           <div className="flex gap-1 mb-2">
@@ -250,20 +226,19 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
               <span
                 key={index}
                 className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
-                  result === lastRoll.highest_die
+                  result === getKeptDie(lastRoll.results, lastRoll.dice_pool)
                     ? 'bg-white border-2 border-current'
                     : 'bg-white bg-opacity-50 border border-current'
-                }`}
-              >
+                }`}>
                 {result}
               </span>
             ))}
           </div>
 
           <p className="text-sm font-semibold mb-2">
-            Highest: {lastRoll.highest_die} - <span className="capitalize">{lastRoll.outcome}</span>
+            Kept: {getKeptDie(lastRoll.results, lastRoll.dice_pool)} - <span className="capitalize">{getFitDOutcome(lastRoll.results, lastRoll.dice_pool)}</span>
           </p>
-          <p className="text-xs leading-tight">{lastRoll.description}</p>
+          <p className="text-xs leading-tight">{getRollDescription(lastRoll.roll_type, getFitDOutcome(lastRoll.results, lastRoll.dice_pool))}</p>
         </div>
       )}
     </div>

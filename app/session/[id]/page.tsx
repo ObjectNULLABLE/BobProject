@@ -8,7 +8,7 @@ import BobDiceRoller from '@/components/BobDiceRoller'
 import ChatFeed from '@/components/ChatFeed'
 import { getCurrentUser } from '@/lib/auth'
 import type { LegionRole } from '@/lib/auth'
-import type { Session, SessionMember, BobDiceRoll } from '@/lib/types'
+import type { Session, SessionMember } from '@/lib/types'
 
 type TabType = 'role' | 'characters' | 'maps' | 'notes' | 'info'
 
