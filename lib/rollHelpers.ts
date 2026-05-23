@@ -1,5 +1,3 @@
-'use client'
-
 import type {
   ActionRollContent,
   CampaignRollContent,
@@ -25,6 +23,17 @@ export const getKeptDie = (results: number[], dicePool: number): number => {
   }
 
   return Math.max(...results)
+}
+
+export const getResistanceStressCost = (results: number[], dicePool: number) => {
+  const kept = getKeptDie(results, dicePool)
+  const sixes = dicePool > 0 ? results.filter((r) => r === 6).length : 0
+
+  if (sixes >= 2) {
+    return -1
+  }
+
+  return Math.max(0, 6 - kept)
 }
 
 export const getFitDOutcome = (results: number[], dicePool: number): RollOutcome => {

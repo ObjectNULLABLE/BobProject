@@ -43,7 +43,7 @@ export async function GET(
       .from('chat_feed')
       .select('*')
       .eq('session_id', id)
-      .eq('type', 'dice')
+      .in('type', ['roll', 'dice'])
       .order('created_at', { ascending: true })
 
     if (error) {

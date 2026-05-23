@@ -15,11 +15,19 @@ export interface SessionRole {
   player_name?: string
 }
 
+export type SessionMemberKind = 'gm' | 'player'
+
 export interface SessionMember {
   id: string
   session_id: string
-  role: 'commander' | 'marshal' | 'quartermaster' | 'lorekeeper' | 'spymaster'
-  player_name: string
+  display_name: string
+  kind: SessionMemberKind
+  auth_user_id?: string | null
+  created_at?: string
+  updated_at?: string
+  // backward compatibility for legacy session_members shape
+  player_name?: string
+  role?: string
 }
 
 export interface SessionItem {
@@ -96,4 +104,72 @@ export interface ChatMessage {
   player_role?: string
   text: string
   timestamp: string
+}
+
+export type CampaignRoleType =
+  | 'commander'
+  | 'marshal'
+  | 'quartermaster'
+  | 'lorekeeper'
+  | 'spymaster'
+
+export type CampaignRole = {
+  id: string
+  session_id: string
+  role_type: CampaignRoleType
+  primary_member_id: string | null
+  acting_member_id: string | null
+  data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  // legacy compatibility
+  assigned_member_id?: string | null
+}
+
+export function getEffectiveRoleMemberId(role: CampaignRole) {
+  return role.acting_member_id ?? role.primary_member_id
+}
+
+export type CharacterType = 'rookie' | 'soldier' | 'specialist'
+
+export type CharacterStatus =
+  | 'available'
+  | 'wounded'
+  | 'dead'
+  | 'lost'
+  | 'retired'
+  | 'archived'
+
+export type CharacterData = {
+  stress?: number
+  trauma?: string[]
+  harm?: Array<{
+    level: 1 | 2 | 3 | 4
+    label: string
+  }>
+  actions?: Record<string, number>
+  xp?: {
+    playbook?: number
+    insight?: number
+    prowess?: number
+    resolve?: number
+  }
+  abilities?: string[]
+  items?: string[]
+  notes?: string
+  custom?: Record<string, unknown>
+}
+
+export type Character = {
+  id: string
+  session_id: string
+  name: string
+  character_type: CharacterType
+  playbook: string
+  status: CharacterStatus
+  squad_key: string | null
+  assigned_member_id: string | null
+  data: CharacterData
+  created_at: string
+  updated_at: string
 }

@@ -6,6 +6,8 @@ import { useSessionStore } from '../../../lib/sessionStore'
 import RoleSelectionModal from '@/components/RoleSelectionModal'
 import BobDiceRoller from '@/components/BobDiceRoller'
 import ChatFeed from '@/components/ChatFeed'
+import CampaignRolesPanel from '@/components/CampaignRolesPanel'
+import CharactersPanel from '@/components/CharactersPanel'
 import { getCurrentUser } from '@/lib/auth'
 import type { LegionRole } from '@/lib/auth'
 import type { Session, SessionMember } from '@/lib/types'
@@ -160,33 +162,15 @@ export default function SessionPage() {
               {/* Role Tab */}
               {activeTab === 'role' && (
                 <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">Legion Members</h2>
-                    <div className="space-y-2">
-                      {sessionMembers.length > 0 ? (
-                        sessionMembers.map((member) => (
-                          <div key={member.id} className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                            <p className="capitalize">
-                              <span className="font-medium">{member.role}:</span> {member.player_name}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-gray-500">No members joined yet</p>
-                      )}
-                    </div>
-                  </div>
+                  <h2 className="text-xl font-semibold mb-4">Command Roles</h2>
+                  <CampaignRolesPanel sessionId={currentSession.id} members={sessionMembers} />
                 </div>
               )}
 
               {/* Characters Tab */}
               {activeTab === 'characters' && (
                 <div>
-                  <h2 className="text-xl font-semibold mb-4">Characters</h2>
-                  <p className="text-gray-600 mb-4">{currentSession.characters.length} characters</p>
-                  <div className="p-8 text-center border border-dashed border-gray-300 rounded-lg bg-gray-50">
-                    <p className="text-gray-500">Character management coming soon</p>
-                  </div>
+                  <CharactersPanel sessionId={currentSession.id} members={sessionMembers} />
                 </div>
               )}
 
@@ -259,7 +243,7 @@ export default function SessionPage() {
       {showRoleModal && (
         <RoleSelectionModal
           sessionId={currentSession.id}
-          takenRoles={sessionMembers.map((m) => m.role)}
+          takenRoles={sessionMembers.map((m) => m.role).filter((role): role is string => Boolean(role))}
           members={sessionMembers}
           onRoleSelected={(role, name) => {
             setPlayerRole(role)

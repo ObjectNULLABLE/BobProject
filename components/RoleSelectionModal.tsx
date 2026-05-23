@@ -57,7 +57,12 @@ export default function RoleSelectionModal({
   }
 
   const handleRestore = (member: SessionMember) => {
-    const restoredName = member.player_name || playerName
+    if (!member.role) {
+      setError('Cannot restore a member without a saved role')
+      return
+    }
+
+    const restoredName = member.display_name || member.player_name || playerName
     localStorage.setItem(`session_${sessionId}_role`, member.role)
     localStorage.setItem(`session_${sessionId}_player_name`, restoredName)
     onRoleSelected(member.role, restoredName)
@@ -73,6 +78,10 @@ export default function RoleSelectionModal({
     setError(null)
 
     try {
+      if (!member.role) {
+        throw new Error('Cannot take over a member without a saved role')
+      }
+
       const response = await fetch(`/api/sessions/${sessionId}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -156,8 +165,8 @@ export default function RoleSelectionModal({
                   <div key={member.id} className="flex flex-col gap-2 rounded-md border border-yellow-200 bg-white p-3">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="font-medium capitalize">{member.role}</p>
-                        <p className="text-sm text-gray-600">{member.player_name}</p>
+                        <p className="font-medium capitalize">{member.role || 'player'}</p>
+                        <p className="text-sm text-gray-600">{member.display_name || member.player_name}</p>
                       </div>
                       <div className="flex gap-2">
                         <button

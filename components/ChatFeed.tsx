@@ -6,6 +6,7 @@ import type { ChatFeedEntry } from '@/lib/types'
 import {
   getFitDOutcome,
   getKeptDie,
+  getResistanceStressCost,
   getRollDescription,
   normalizeRollContent,
 } from '@/lib/rollHelpers'
@@ -83,6 +84,7 @@ export default function ChatFeed({ sessionId }: ChatFeedProps) {
     const roll = normalizeRollContent(entry.content)
     const keptDie = getKeptDie(roll.results, roll.dice_pool)
     const outcome = getFitDOutcome(roll.results, roll.dice_pool)
+    const resistanceCost = getResistanceStressCost(roll.results, roll.dice_pool)
     const description = getRollDescription(roll.roll_type, outcome)
     const timestamp = new Date(entry.created_at).toLocaleTimeString()
 
@@ -131,15 +133,19 @@ export default function ChatFeed({ sessionId }: ChatFeedProps) {
         </div>
 
         <div className="mb-2">
-          <p className="text-sm font-semibold">
-            Kept: {keptDie}
-            {roll.roll_type !== 'resistance' && (
+          {roll.roll_type === 'resistance' ? (
+            <p className="text-sm font-semibold">
+              Stress cost: {resistanceCost === -1 ? 'Critical (-1)' : resistanceCost}
+            </p>
+          ) : (
+            <p className="text-sm font-semibold">
+              Kept: {keptDie}
               <span className="capitalize"> - {outcome}</span>
-            )}
-          </p>
+            </p>
+          )}
         </div>
 
-        {description && (
+        {description && roll.roll_type !== 'resistance' && (
           <p className="text-xs leading-tight">{description}</p>
         )}
         {roll.note && (

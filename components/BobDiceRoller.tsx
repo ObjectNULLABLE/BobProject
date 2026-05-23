@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { getFitDOutcome, getKeptDie, getRollDescription } from '@/lib/rollHelpers'
+import { getFitDOutcome, getKeptDie, getResistanceStressCost, getRollDescription } from '@/lib/rollHelpers'
 import type { DiceRollType, Position, Effect, RollContent } from '@/lib/types'
 
 interface BobDiceRollerProps {
@@ -19,10 +19,6 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
   const [effect, setEffect] = useState<Effect>('standard')
   const [rolling, setRolling] = useState(false)
   const [lastRoll, setLastRoll] = useState<(RollContent & { created_at: string }) | null>(null)
-
-  const getStressFromResistance = (highest: number): number => {
-    return Math.max(0, 6 - highest)
-  }
 
   const rollDice = async () => {
     setRolling(true)
@@ -235,10 +231,18 @@ export default function BobDiceRoller({ sessionId, playerName, playerRole, isGM,
             ))}
           </div>
 
-          <p className="text-sm font-semibold mb-2">
-            Kept: {getKeptDie(lastRoll.results, lastRoll.dice_pool)} - <span className="capitalize">{getFitDOutcome(lastRoll.results, lastRoll.dice_pool)}</span>
-          </p>
-          <p className="text-xs leading-tight">{getRollDescription(lastRoll.roll_type, getFitDOutcome(lastRoll.results, lastRoll.dice_pool))}</p>
+          {lastRoll.roll_type === 'resistance' ? (
+            <p className="text-sm font-semibold mb-2">
+              Stress cost: {getResistanceStressCost(lastRoll.results, lastRoll.dice_pool) === -1 ? 'Critical (-1)' : getResistanceStressCost(lastRoll.results, lastRoll.dice_pool)}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm font-semibold mb-2">
+                Kept: {getKeptDie(lastRoll.results, lastRoll.dice_pool)} - <span className="capitalize">{getFitDOutcome(lastRoll.results, lastRoll.dice_pool)}</span>
+              </p>
+              <p className="text-xs leading-tight">{getRollDescription(lastRoll.roll_type, getFitDOutcome(lastRoll.results, lastRoll.dice_pool))}</p>
+            </>
+          )}
         </div>
       )}
     </div>

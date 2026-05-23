@@ -14,7 +14,19 @@ export async function GET(
 
     if (error) throw error
 
-    return NextResponse.json(data || [])
+    const mapped = (data || []).map((row: any) => ({
+      id: row.id,
+      session_id: row.session_id,
+      display_name: row.display_name || row.player_name || 'Player',
+      kind: row.kind || 'player',
+      auth_user_id: row.auth_user_id ?? row.user_id ?? null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      player_name: row.player_name,
+      role: row.role,
+    }))
+
+    return NextResponse.json(mapped)
   } catch (error) {
     console.error('Failed to fetch session members:', error)
     return NextResponse.json({ error: 'Failed to fetch session members' }, { status: 500 })

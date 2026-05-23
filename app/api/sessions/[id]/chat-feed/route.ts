@@ -13,7 +13,7 @@ export async function POST(
     const feedEntry: ChatFeedEntry = {
       id: entry.id || Date.now().toString(),
       session_id: id,
-      type: entry.type || 'dice',
+      type: entry.type || 'message',
       content: entry.content,
       created_at: new Date().toISOString(),
     }
